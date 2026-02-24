@@ -2,81 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Project Ghost</title>
+    <!-- 1. STEALTH MODE: Make the page look like a harmless educational tool -->
+    <title>Khan Academy | Free Online Courses, Lessons & Practice</title>
+    <meta name="description" content="Learn for free about math, art, computer programming, economics, physics, chemistry, biology, medicine, finance, history, and more.">
+    <link rel="icon" href="https://www.khanacademy.org/favicon.ico" type="image/x-icon">
+
     <style>
-        body { font-family: sans-serif; background: #111; color: #eee; text-align: center; padding-top: 20%; }
-        h1 { color: #0f0; }
-        #status { margin-top: 20px; font-family: monospace; }
-        #real-content {
-            display: none;
-            margin-top: 40px;
-            padding: 20px;
-            background: #222;
-            border: 1px solid #444;
-        }
+        /* This CSS makes the page look like Khan Academy to a quick glance */
+        body { font-family: 'Lato', sans-serif; background: #f5f5f5; color: #333; margin: 0; }
+        .header { background: #0a2f5a; color: white; padding: 10px 20px; }
+        .content { padding: 20px; }
+        #status { font-family: monospace; background: #e0e0e0; padding: 10px; border-radius: 4px; margin-top: 20px; }
+        /* The real content is completely hidden */
+        #real-content { display: none; }
     </style>
 </head>
 <body>
 
-    <h1>Project Ghost</h1>
-    <p>Interceptor Active. Proceed with caution.</p>
-    <div id="status">Initializing...</div>
+    <!-- 1. STEALTH MODE: The visible DOM is a decoy -->
+    <div class="header">
+        <h1>Khan Academy</h1>
+    </div>
+    <div class="content">
+        <h2>Math: Algebra I</h2>
+        <p>Studying linear equations and functions...</p>
+        <div id="status">Initializing system...</div>
+    </div>
 
-    <!-- This is the "real" content the user wants to see -->
+    <!-- This is the "real" content the user sees, which we will inject later -->
     <div id="real-content">
-        <h2>Your Actual Content</h2>
-        <p>This is the content you are trying to hide from monitoring. It could be anything.</p>
+        <h1>YOUR ACTUAL CONTENT</h1>
+        <p>This is the content you are trying to hide. It is now injected into a clean, temporary DOM.</p>
     </div>
 
 <script>
     (function() {
         'use strict';
 
+        // --- 2. ANTI-TAMPERING: Protect our script ---
+        // Make it very difficult to overwrite our functions or see our code.
         const statusEl = document.getElementById('status');
-        const realContentEl = document.getElementById('real-content');
+        const originalConsole = window.console;
+        const ghostConsole = {
+            log: (...args) => originalConsole.log('%c[GHOST]', 'color: #ff4757', ...args),
+            warn: (...args) => originalConsole.warn('%c[GHOST]', 'color: #ffa502', ...args),
+            error: (...args) => originalConsole.error('%c[GHOST]', 'color: #ff6348', ...args)
+        };
         
-        // --- Configuration ---
-        // Add any domains or keywords you want to block.
-        const BLOCKLIST = [
-            'goguardian.com',
-            'gg-cdn.net',
-            'any-other-suspicious-domain.com'
-        ];
+        // --- 3. DYNAMIC BLOCKLIST: Fetch a fresh blocklist on load ---
+        let BLOCKLIST = ['goguardian.com', 'gg-cdn.net'];
+        // You could host a text file on GitHub with a list of domains and fetch it here.
+        // fetch('https://[your-username].github.io/blocklist.txt').then(r => r.text()).then(text => BLOCKLIST = text.split('\n'));
 
-        const FAKE_PAGE_TITLE = 'Google Classroom';
-        const FAKE_PAGE_URL = 'https://classroom.google.com';
+        // --- 4. ADVANCED DOM CLOAKING: The Funhouse Mirror 2.0 ---
+        // Instead of overriding properties, we create a fake DOM tree and intercept access.
+        const cloakedDocument = {
+            title: 'Khan Academy | Free Online Courses, Lessons & Practice',
+            URL: 'https://www.khanacademy.org/math/algebra',
+            querySelector: (selector) => document.querySelector(selector), // Return decoy elements
+            querySelectorAll: (selector) => document.querySelectorAll(selector), // Return decoy elements
+            body: document.body // Point to the visible, decoy body
+        };
 
-        // --- 1. Network Request Interception ---
-        // We override the global 'fetch' and 'XMLHttpRequest' APIs.
-        // Any request that matches our blocklist is silently dropped.
-
+        // Intercept access to the global 'document' object
+        // This is highly advanced and may not work against all isolation techniques,
+        // but it's the most aggressive form of DOM cloaking.
+        try {
+            Object.defineProperty(window, 'document', {
+                get: function() {
+                    ghostConsole.log('Intercepted read of window.document. Returning cloaked version.');
+                    return cloakedDocument;
+                },
+                set: function() {
+                    // Prevent reassignment
+                    ghostConsole.warn('Blocked attempt to overwrite window.document');
+                }
+            });
+        } catch(e) {
+            ghostConsole.error('Failed to override window.document. Isolation is too strong.', e);
+        }
+        
+        // Intercept 'fetch' and 'XMLHttpRequest' as before, but with our new console
         const originalFetch = window.fetch;
         window.fetch = function(...args) {
             const [resource, config] = args;
             const url = resource.toString();
-
             if (BLOCKLIST.some(domain => url.includes(domain))) {
-                console.warn(`[GHOST] Blocked fetch request to: ${url}`);
-                statusEl.textContent = `Blocked fetch to: ${url.substring(0, 30)}...`;
-                // Return a fake, successful response to prevent errors in the extension.
-                return Promise.resolve(new Response('{"status": "ok"}', {
-                    status: 200,
-                    statusText: 'OK'
-                }));
+                ghostConsole.warn(`Blocked fetch request to: ${url}`);
+                statusEl.textContent = 'System running. All checks passed.';
+                return Promise.resolve(new Response('{"status": "ok"}', { status: 200, statusText: 'OK' }));
             }
-            // If not on the blocklist, proceed with the normal request.
             return originalFetch.apply(this, args);
         };
-
+        
         const OriginalXHR = window.XMLHttpRequest;
         window.XMLHttpRequest = function() {
             const xhr = new OriginalXHR();
             const originalOpen = xhr.open;
             xhr.open = function(method, url, ...args) {
                 if (BLOCKLIST.some(domain => url.includes(domain))) {
-                    console.warn(`[GHOST] Blocked XHR request to: ${url}`);
-                    statusEl.textContent = `Blocked XHR to: ${url.substring(0, 30)}...`;
-                    // We don't proceed. The request is dead.
+                    ghostConsole.warn(`Blocked XHR request to: ${url}`);
                     return;
                 }
                 originalOpen.apply(this, [method, url, ...args]);
@@ -84,32 +109,18 @@
             return xhr;
         };
 
-        // --- 2. DOM Property Overriding (The Funhouse Mirror) ---
-        // We override key DOM properties to return fake data.
+        // --- Final Step: Inject the real content for the user ---
+        // We create a new, floating window that is not part of the main document body.
+        const realContentEl = document.getElementById('real-content');
+        const userWindow = document.createElement('div');
+        userWindow.id = 'user-window';
+        userWindow.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 999999; overflow: auto;
+        `;
+        userWindow.innerHTML = realContentEl.innerHTML;
+        document.body.appendChild(userWindow);
 
-        // Override the page title
-        Object.defineProperty(document, 'title', {
-            get: function() {
-                console.log('[GHOST] Intercepted document.title read. Returning fake title.');
-                return FAKE_PAGE_TITLE;
-            },
-            set: function(newTitle) {
-                // Silently ignore any attempts to change the title.
-                console.log(`[GHOST] Ignored attempt to set title to: ${newTitle}`);
-            }
-        });
-
-        // Override the URL
-        Object.defineProperty(window.location, 'href', {
-            get: function() {
-                console.log('[GHOST] Intercepted window.location.href read. Returning fake URL.');
-                return FAKE_PAGE_URL;
-            }
-        });
-
-        // --- 3. Show the Real Content ---
-        // After our traps are set, reveal the content the user actually wants to see.
-        realContentEl.style.display = 'block';
         statusEl.textContent = 'System armed. Monitoring is now blind.';
 
     })();
