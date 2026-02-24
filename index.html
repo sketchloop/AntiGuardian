@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Project Ghost</title>
+    <style>
+        body { font-family: sans-serif; background: #111; color: #eee; text-align: center; padding-top: 20%; }
+        h1 { color: #0f0; }
+        #status { margin-top: 20px; font-family: monospace; }
+        #real-content {
+            display: none;
+            margin-top: 40px;
+            padding: 20px;
+            background: #222;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Project Ghost</h1>
+    <p>Interceptor Active. Proceed with caution.</p>
+    <div id="status">Initializing...</div>
+
+    <!-- This is the "real" content the user wants to see -->
+    <div id="real-content">
+        <h2>Your Actual Content</h2>
+        <p>This is the content you are trying to hide from monitoring. It could be anything.</p>
+    </div>
+
+<script>
+    (function() {
+        'use strict';
+
+        const statusEl = document.getElementById('status');
+        const realContentEl = document.getElementById('real-content');
+        
+        // --- Configuration ---
+        // Add any domains or keywords you want to block.
+        const BLOCKLIST = [
+            'goguardian.com',
+            'gg-cdn.net',
+            'any-other-suspicious-domain.com'
+        ];
+
+        const FAKE_PAGE_TITLE = 'Google Classroom';
+        const FAKE_PAGE_URL = 'https://classroom.google.com';
+
+        // --- 1. Network Request Interception ---
+        // We override the global 'fetch' and 'XMLHttpRequest' APIs.
+        // Any request that matches our blocklist is silently dropped.
+
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const [resource, config] = args;
+            const url = resource.toString();
+
+            if (BLOCKLIST.some(domain => url.includes(domain))) {
+                console.warn(`[GHOST] Blocked fetch request to: ${url}`);
+                statusEl.textContent = `Blocked fetch to: ${url.substring(0, 30)}...`;
+                // Return a fake, successful response to prevent errors in the extension.
+                return Promise.resolve(new Response('{"status": "ok"}', {
+                    status: 200,
+                    statusText: 'OK'
+                }));
+            }
+            // If not on the blocklist, proceed with the normal request.
+            return originalFetch.apply(this, args);
+        };
+
+        const OriginalXHR = window.XMLHttpRequest;
+        window.XMLHttpRequest = function() {
+            const xhr = new OriginalXHR();
+            const originalOpen = xhr.open;
+            xhr.open = function(method, url, ...args) {
+                if (BLOCKLIST.some(domain => url.includes(domain))) {
+                    console.warn(`[GHOST] Blocked XHR request to: ${url}`);
+                    statusEl.textContent = `Blocked XHR to: ${url.substring(0, 30)}...`;
+                    // We don't proceed. The request is dead.
+                    return;
+                }
+                originalOpen.apply(this, [method, url, ...args]);
+            };
+            return xhr;
+        };
+
+        // --- 2. DOM Property Overriding (The Funhouse Mirror) ---
+        // We override key DOM properties to return fake data.
+
+        // Override the page title
+        Object.defineProperty(document, 'title', {
+            get: function() {
+                console.log('[GHOST] Intercepted document.title read. Returning fake title.');
+                return FAKE_PAGE_TITLE;
+            },
+            set: function(newTitle) {
+                // Silently ignore any attempts to change the title.
+                console.log(`[GHOST] Ignored attempt to set title to: ${newTitle}`);
+            }
+        });
+
+        // Override the URL
+        Object.defineProperty(window.location, 'href', {
+            get: function() {
+                console.log('[GHOST] Intercepted window.location.href read. Returning fake URL.');
+                return FAKE_PAGE_URL;
+            }
+        });
+
+        // --- 3. Show the Real Content ---
+        // After our traps are set, reveal the content the user actually wants to see.
+        realContentEl.style.display = 'block';
+        statusEl.textContent = 'System armed. Monitoring is now blind.';
+
+    })();
+</script>
+
+</body>
+</html>
